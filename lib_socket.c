@@ -35,24 +35,26 @@
 //-----------------------------------------------------------------------------
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-volatile enum eSERVER_PORT eControlPort = eSPORT_C4;
+volatile enum eBOARD_PORT eControlPort = eBOARD_P_C4;
 
 //-----------------------------------------------------------------------------
 struct server_info {
-    enum eSERVER_PORT   sport;
+    enum eBOARD_PORT    port;
     char                *name;
 };
 
 const struct server_info s_info [] = {
-    { eSPORT_C4,  "ODROID-C4"},
-    { eSPORT_M1,  "ODROID-M1"},
-    { eSPORT_M1S, "ODROID-M1S"},
-    { eSPORT_M2,  "ODROID-M2"},
+    { eBOARD_P_C4,  "ODROID-C4"},
+    { eBOARD_P_M1,  "ODROID-M1"},
+    { eBOARD_P_M1S, "ODROID-M1S"},
+    { eBOARD_P_M2,  "ODROID-M2"},
+    { eBOARD_P_C5,  "ODROID-C5"},
 };
 
 static int (*callback_func)(char *buf, int len);
 
 //-----------------------------------------------------------------------------
+// https://stackoverflow.com/questions/2917881/how-to-implement-a-timeout-in-read-function-call
 //-----------------------------------------------------------------------------
 static int read_timeout (int fd, char *r_buf, int len, int timeout_ms)
 {
@@ -83,17 +85,24 @@ static int read_timeout (int fd, char *r_buf, int len, int timeout_ms)
 }
 
 //-----------------------------------------------------------------------------
+// TCP socket use SOCK_STREAM
+// UDP socket use SOCK_DGRAM
+//-----------------------------------------------------------------------------
 void *thread_func_server (void *arg)
 {
-    int s_fd = socket(PF_INET, SOCK_STREAM, 0), c_fd = -1, option = 1;
+#define SOCKET_BUF_SIZE 1024
+    // tcp socket use
+    int s_fd = socket(PF_INET, SOCK_STREAM, 0), c_fd = -1, option = 1, len;
+    char msg [SOCKET_BUF_SIZE];
     struct server_info *s_info = (struct server_info *)arg;
     struct sockaddr_in sa, ca;
     socklen_t ca_sz;
 
     sa.sin_family       = AF_INET;
-    sa.sin_port         = htons(s_info->sport);
+    sa.sin_port         = htons(s_info->port);
     sa.sin_addr.s_addr  = htonl(INADDR_ANY);
 
+    // https://blog.naver.com/cache798/130033780509 (socket bind error fix)
     setsockopt (s_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 
     if (bind (s_fd, (struct sockaddr *)&sa, sizeof(sa)) == -1)
@@ -103,13 +112,11 @@ void *thread_func_server (void *arg)
     if (listen (s_fd, MAX_CLIENT) == -1)
         printf ("%s : listen error!\r\n", __func__);
 
-    printf ("%s server thread create : port = %d\n", s_info->name, s_info->sport);
+    printf ("%s server thread create : port = %d\n", s_info->name, s_info->port);
 
     ca_sz = sizeof(ca);
 
     while (1) {
-        char msg [1024];
-        int len;
 
         if (c_fd < 0) {
             if ((c_fd = accept (s_fd, (void *)&ca, &ca_sz)) == -1) {
@@ -119,21 +126,21 @@ void *thread_func_server (void *arg)
         }
         // connect info display
         printf ("Accept : name = %s, port = %d, ip addr %s, fd = %d\n",
-                    s_info->name, s_info->sport, inet_ntoa(ca.sin_addr), c_fd);
+                    s_info->name, s_info->port, inet_ntoa(ca.sin_addr), c_fd);
 
         memset  (msg, 0, sizeof(msg));
 
-        // timeout read
-        if ((len = read_timeout (c_fd, msg, sizeof(msg), -1)) != 0) {
-
-            if (s_info->sport == eControlPort) {
+        // timeout read (timeout val == 0, block mode)
+        if ((len = read_timeout (c_fd, msg, sizeof(msg), 0)) != 0) {
+            if (s_info->port == eControlPort) {
                 pthread_mutex_lock (&mutex);
-                if (!callback_func(msg, len))    printf ("error!\n");
+                if (!callback_func(msg, len)) {
+                    close (c_fd);   c_fd = -1;
+                }
                 pthread_mutex_unlock (&mutex);
             }
-            if (strstr (msg, "quit") != NULL) {
-                close (c_fd);   c_fd = -1;
-            }
+        } else {
+            close (c_fd);   c_fd = -1;
         }
     }
     close (s_fd);
@@ -141,27 +148,44 @@ void *thread_func_server (void *arg)
 }
 
 //-----------------------------------------------------------------------------
-int socket_server_port (enum eSERVER_PORT set_port)
+enum eBOARD_PORT get_server_port (void)
+{
+    return eControlPort;
+}
+
+//-----------------------------------------------------------------------------
+int set_server_port (enum eBOARD_PORT set_port)
 {
     switch (set_port) {
-        case eSPORT_M1: case eSPORT_M1S: case eSPORT_M2: case eSPORT_C4:
+        case eBOARD_P_C4: case eBOARD_P_M1: case eBOARD_P_M1S: case eBOARD_P_M2:
+        case eBOARD_P_C5:
             eControlPort = set_port;
+            printf ("%s : set port = %d\n", __func__, eControlPort);
             return 1;
         default :
-            printf ("%s : unknown port value = %d, default port = 8888(ODROID-C4)\r\n", __func__, set_port);
-            eControlPort = eSPORT_C4;
+            printf ("%s : unknown port value = %d, set default port = 8888(ODROID-C4)\r\n",
+                __func__, set_port);
+            eControlPort = eBOARD_P_C4;
             return 0;
     }
 }
 
 //-----------------------------------------------------------------------------
-int socket_server_init (enum eSERVER_PORT def_port, int (*pcallback_func)(char *, int))
+void set_server_callback (int (*pcallback_func)(char *, int))
+{
+    callback_func = pcallback_func;
+}
+
+//-----------------------------------------------------------------------------
+int socket_server_init (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int))
 {
     pthread_t pthread_server[ARRARY_SIZE(s_info)];
     int i;
 
-    eControlPort  = def_port;
-    callback_func = pcallback_func;
+    printf ("\n\n*** %s (PORT : %d) ***\n\n", __func__, def_port);
+
+    set_server_port     (def_port);
+    set_server_callback (pcallback_func);
 
     for (i = 0; i < (int)(ARRARY_SIZE(s_info)); i++)
         pthread_create (&pthread_server[i], NULL, thread_func_server, (void *)&s_info[i]);
@@ -170,8 +194,8 @@ int socket_server_init (enum eSERVER_PORT def_port, int (*pcallback_func)(char *
 }
 
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 int socket_client_init ();
-int socket_client_port ();
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

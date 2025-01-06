@@ -19,12 +19,13 @@
 // define socket number
 //
 //------------------------------------------------------------------------------
-enum eSERVER_PORT {
-    eSPORT_C4 = 8888,
-    eSPORT_M1 = 9000,
-    eSPORT_M1S,
-    eSPORT_M2,
-    sSPORT_END
+enum eBOARD_PORT {
+    eBOARD_P_C4 = 8888,
+    eBOARD_P_M1 = 9000,
+    eBOARD_P_M1S,
+    eBOARD_P_M2,
+    eBOARD_P_C5,
+    eBOARD_P_END
 };
 
 #define ARRARY_SIZE(x)  (sizeof(x)/sizeof(x[0]))
@@ -34,8 +35,10 @@ enum eSERVER_PORT {
 //------------------------------------------------------------------------------
 // Function prototype
 //------------------------------------------------------------------------------
-extern int socket_server_port (enum eSERVER_PORT set_port);
-extern int socket_server_init (enum eSERVER_PORT def_port, int (*pcallback_func)(char *, int));
+extern enum eBOARD_PORT get_server_port     (void);
+extern int              set_server_port     (enum eBOARD_PORT set_port);
+extern void             set_server_callback (int (*pcallback_func)(char *, int));
+extern int              socket_server_init  (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int));
 
 //------------------------------------------------------------------------------
 #endif  //  #define __LIB_SOCKET_H__
