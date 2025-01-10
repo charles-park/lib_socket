@@ -1,35 +1,25 @@
-# lib_ioshield
-LCD16x2 IO Shield (WiringPi)
+# lib_socket
+Network label printer server socket communication for ODROID boards.
 
-wiringPi install(wiki) : https://wiki.odroid.com/odroid-c4/application_note/gpio/wiringpi
+* ODROID BOARD TCP PORT  
+    eBOARD_P_C4 = 8888,  
+    eBOARD_P_M1 = 9000,  
+    eBOARD_P_M1S = 9001,  
+    eBOARD_P_M2 = 9002,  
+    eBOARD_P_C5 = 9003,  
 
-```
-// add apt-source list for wiringPi (ubuntu 24.01-odroidc4)
-root@odroid:/etc/apt/sources.list.d$ cat ppa-linuxfactory-or-kr.list 
-deb [trusted=yes] http://ppa.linuxfactory.or.kr noble main
-
-root@odroid:/etc/apt/sources.list.d$ apt update
-root@odroid:/etc/apt/sources.list.d$ apt install odroid-wiringpi
-root@odroid:/etc/apt/sources.list.d$ apt install libwiringpi-dev
-```
 
 ```
-Usage: ./lib_ioshield [-xymctsr]
+    Usage: ./lib_socket [-scbm]
+    puts(
+         -s --server        server mode init.\n"
+         -c --client        client moode init.\n"
+         -b --board         board name (c4, m1, m1s, m2, c5). default c4.\n"
+         -m --msg           client to server message.\n"
 
-  -x --lcd_x         lcd x (COL) position. (default 0).
-  -y --lcd_y         lcd y (ROW) position. (default 0).
-  -m --msg           lcd display msg
-  -c --lcd_clear     lcd clear line.(default -1, all clear)
-  -t --show_time     current time display (offset)
-  -s --led_set       led 1 ~ 7 on (D1 ~ D7)
-  -r --led_clear     led 1 ~ 7 off(D1 ~ D7)
-```
-
-```
-// LCD Display
-./lib_ioshield -x 0 -y 0 -m 'hello odroid!!'
-// Time Display & Offset
-./lib_ioshield -t 9
-// LED Control (D1 ~ D7), D1 On, D2 off
-./lib_ioshield -s 1 -r 2
+         // server mode test : https://uutopia.tistory.com/41
+         e.g)lib_socket -s -b m1 \n"    // server mode, port 9000 enable
+             lib_socket -s -b m2 \n"    // server mode, port 9002 enable
+         // server find : nmap {ipaddr}.* -p T:{port} --open
+             lib_socket -c -b m1 -m '1234567' \n"   // client mode, send msg to open tcp port 9000
 ```
