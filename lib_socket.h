@@ -20,12 +20,18 @@
 //
 //------------------------------------------------------------------------------
 enum eBOARD_PORT {
-    eBOARD_P_C4 = 8888,
-    eBOARD_P_M1 = 9000,
+    eBOARD_P_C4 = 0,
+    eBOARD_P_M1,
     eBOARD_P_M1S,
     eBOARD_P_M2,
     eBOARD_P_C5,
     eBOARD_P_END
+};
+
+struct nlp_socket_info {
+    const enum eBOARD_PORT    id;
+    const int                 port;
+    const char                *name;
 };
 
 #define ARRARY_SIZE(x)  (sizeof(x)/sizeof(x[0]))
@@ -35,7 +41,8 @@ enum eBOARD_PORT {
 //------------------------------------------------------------------------------
 // Function prototype
 //------------------------------------------------------------------------------
-extern enum eBOARD_PORT get_server_port     (void);
+extern struct nlp_socket_info *get_server_port     (void);
+
 extern int              set_server_port     (enum eBOARD_PORT set_port);
 extern void             set_server_callback (int (*pcallback_func)(char *, int));
 extern int              socket_server_init  (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int));

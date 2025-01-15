@@ -33,22 +33,24 @@
 #include "lib_socket.h"
 
 //-----------------------------------------------------------------------------
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+// socket test
+// https://uutopia.tistory.com/41
+//
+// telnet {ip} {port}
+// curl -v telnet://{ip}:{port}
+//
+//-----------------------------------------------------------------------------
+pthread_mutex_t mutex_socket = PTHREAD_MUTEX_INITIALIZER;
 
-volatile enum eBOARD_PORT eControlPort = eBOARD_P_C4;
+volatile enum eBOARD_PORT eControlPortID = eBOARD_P_C4;
 
 //-----------------------------------------------------------------------------
-struct server_info {
-    enum eBOARD_PORT    port;
-    char                *name;
-};
-
-const struct server_info s_info [] = {
-    { eBOARD_P_C4,  "ODROID-C4"},
-    { eBOARD_P_M1,  "ODROID-M1"},
-    { eBOARD_P_M1S, "ODROID-M1S"},
-    { eBOARD_P_M2,  "ODROID-M2"},
-    { eBOARD_P_C5,  "ODROID-C5"},
+struct nlp_socket_info socket_info [] = {
+    { eBOARD_P_C4,  8888, "ODROID-C4"},
+    { eBOARD_P_M1,  9000, "ODROID-M1"},
+    { eBOARD_P_M1S, 9001, "ODROID-M1S"},
+    { eBOARD_P_M2,  9002, "ODROID-M2"},
+    { eBOARD_P_C5,  9003, "ODROID-C5"},
 };
 
 static int (*callback_func)(char *buf, int len);
@@ -94,7 +96,7 @@ void *thread_func_server (void *arg)
     // tcp socket use
     int s_fd = socket(PF_INET, SOCK_STREAM, 0), c_fd = -1, option = 1, len;
     char msg [SOCKET_BUF_SIZE];
-    struct server_info *s_info = (struct server_info *)arg;
+    struct nlp_socket_info *s_info = (struct nlp_socket_info *)arg;
     struct sockaddr_in sa, ca;
     socklen_t ca_sz;
 
@@ -132,12 +134,12 @@ void *thread_func_server (void *arg)
 
         // timeout read (timeout val == 0, block mode)
         if ((len = read_timeout (c_fd, msg, sizeof(msg), 0)) != 0) {
-            if (s_info->port == eControlPort) {
-                pthread_mutex_lock (&mutex);
+            if (socket_info->id == eControlPortID) {
+                pthread_mutex_lock (&mutex_socket);
                 if (!callback_func(msg, len)) {
                     close (c_fd);   c_fd = -1;
                 }
-                pthread_mutex_unlock (&mutex);
+                pthread_mutex_unlock (&mutex_socket);
             }
         } else {
             close (c_fd);   c_fd = -1;
@@ -148,9 +150,9 @@ void *thread_func_server (void *arg)
 }
 
 //-----------------------------------------------------------------------------
-enum eBOARD_PORT get_server_port (void)
+struct nlp_socket_info *get_server_port (void)
 {
-    return eControlPort;
+    return &socket_info [eControlPortID];
 }
 
 //-----------------------------------------------------------------------------
@@ -159,13 +161,13 @@ int set_server_port (enum eBOARD_PORT set_port)
     switch (set_port) {
         case eBOARD_P_C4: case eBOARD_P_M1: case eBOARD_P_M1S: case eBOARD_P_M2:
         case eBOARD_P_C5:
-            eControlPort = set_port;
-            printf ("%s : set port = %d\n", __func__, eControlPort);
+            eControlPortID = set_port;
+            printf ("%s : set port = %d\n", __func__, socket_info[eControlPortID].port);
             return 1;
         default :
             printf ("%s : unknown port value = %d, set default port = 8888(ODROID-C4)\r\n",
                 __func__, set_port);
-            eControlPort = eBOARD_P_C4;
+            eControlPortID = eBOARD_P_C4;
             return 0;
     }
 }
@@ -179,16 +181,16 @@ void set_server_callback (int (*pcallback_func)(char *, int))
 //-----------------------------------------------------------------------------
 int socket_server_init (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int))
 {
-    pthread_t pthread_server[ARRARY_SIZE(s_info)];
+    pthread_t pthread_server[ARRARY_SIZE(socket_info)];
     int i;
 
-    printf ("\n\n*** %s (PORT : %d) ***\n\n", __func__, def_port);
+    printf ("\n\n*** %s (PORT : %d) ***\n\n", __func__, socket_info[def_port].port);
 
     set_server_port     (def_port);
     set_server_callback (pcallback_func);
 
-    for (i = 0; i < (int)(ARRARY_SIZE(s_info)); i++)
-        pthread_create (&pthread_server[i], NULL, thread_func_server, (void *)&s_info[i]);
+    for (i = 0; i < (int)(ARRARY_SIZE(socket_info)); i++)
+        pthread_create (&pthread_server[i], NULL, thread_func_server, (void *)&socket_info[i]);
 
     return 1;
 }
