@@ -44,8 +44,8 @@ struct nlp_socket_info {
 extern struct nlp_socket_info *get_server_port     (void);
 
 extern int              set_server_port     (enum eBOARD_PORT set_port);
-extern void             set_server_callback (int (*pcallback_func)(char *, int));
-extern int              socket_server_init  (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int));
+extern void             set_server_callback (int (*pcallback_func)(int, char *, int));
+extern int              socket_server_init  (enum eBOARD_PORT def_port, int (*pcallback_func)(int, char *, int));
 
 //------------------------------------------------------------------------------
 #endif  //  #define __LIB_SOCKET_H__

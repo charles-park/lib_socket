@@ -119,7 +119,7 @@ static void parse_opts (int argc, char *argv[])
 }
 
 //------------------------------------------------------------------------------
-static int parse_packet (char *msg, int r_size)
+static int parse_packet (int c_fd, char *msg, int r_size)
 {
     printf ("%s : size = %d, msg = %s\n", __func__, r_size, msg);
     if (!strncmp(msg, "exit", strlen("exit")))

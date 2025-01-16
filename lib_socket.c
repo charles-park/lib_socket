@@ -53,7 +53,7 @@ struct nlp_socket_info socket_info [] = {
     { eBOARD_P_C5,  9003, "ODROID-C5"},
 };
 
-static int (*callback_func)(char *buf, int len);
+static int (*callback_func)(int c_fd, char *buf, int len);
 
 //-----------------------------------------------------------------------------
 // https://stackoverflow.com/questions/2917881/how-to-implement-a-timeout-in-read-function-call
@@ -136,7 +136,7 @@ void *thread_func_server (void *arg)
         if ((len = read_timeout (c_fd, msg, sizeof(msg), 0)) != 0) {
             if (socket_info->id == eControlPortID) {
                 pthread_mutex_lock (&mutex_socket);
-                if (!callback_func(msg, len)) {
+                if (!callback_func(c_fd, msg, len)) {
                     close (c_fd);   c_fd = -1;
                 }
                 pthread_mutex_unlock (&mutex_socket);
@@ -173,13 +173,13 @@ int set_server_port (enum eBOARD_PORT set_port)
 }
 
 //-----------------------------------------------------------------------------
-void set_server_callback (int (*pcallback_func)(char *, int))
+void set_server_callback (int (*pcallback_func)(int, char *, int))
 {
     callback_func = pcallback_func;
 }
 
 //-----------------------------------------------------------------------------
-int socket_server_init (enum eBOARD_PORT def_port, int (*pcallback_func)(char *, int))
+int socket_server_init (enum eBOARD_PORT def_port, int (*pcallback_func)(int, char *, int))
 {
     pthread_t pthread_server[ARRARY_SIZE(socket_info)];
     int i;
